@@ -4,6 +4,7 @@ import { createNewGame, joinGame, Move, play } from "@/lib/contract";
 import { getStxBalance } from "@/lib/stx-utils";
 import {
   AppConfig,
+  showConnect,
   openContractCall,
   type UserData,
   UserSession,
@@ -23,62 +24,15 @@ export function useStacks() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [stxBalance, setStxBalance] = useState(0);
 
-  async function connectWallet() {
-    // Ensure we're in the browser
-    if (typeof window === "undefined") return;
-    
-    try {
-      const connectModule = await import("@stacks/connect");
-      
-      // Type assertion to handle unknown properties
-      type AuthModalFunction = (args: {
-        appDetails: typeof appDetails;
-        onFinish: () => void;
-        userSession: typeof userSession;
-      }) => void;
-
-      type ExtendedConnectModule = {
-        openAuthModal?: AuthModalFunction;
-        showConnect?: AuthModalFunction;
-        authenticate?: AuthModalFunction;
-        default?: {
-          openAuthModal?: AuthModalFunction;
-          showConnect?: AuthModalFunction;
-          authenticate?: AuthModalFunction;
-        };
-      };
-      
-      const typedModule = connectModule as unknown as ExtendedConnectModule;
-      
-      console.log("Connect module:", connectModule);
-      console.log("Available exports:", Object.keys(connectModule));
-      console.log("Default exports:", connectModule.default ? Object.keys(connectModule.default) : "none");
-      
-      const authModal = 
-        typedModule.openAuthModal || 
-        typedModule.default?.openAuthModal ||
-        typedModule.showConnect ||
-        typedModule.default?.showConnect ||
-        typedModule.authenticate ||
-        typedModule.default?.authenticate;
-      
-      if (!authModal) {
-        console.error("No auth modal function found.");
-        console.error("Available in connectModule:", Object.keys(connectModule));
-        return;
-      }
-      
-      authModal({
-        appDetails,
-        onFinish: () => {
-          const userData = userSession.loadUserData();
-          setUserData(userData);
-        },
-        userSession,
-      });
-    } catch (error) {
-      console.error("Error connecting wallet:", error);
-    }
+  function connectWallet() {
+    showConnect({
+      appDetails,
+      onFinish: () => {
+        const userData = userSession.loadUserData();
+        setUserData(userData);
+      },
+      userSession,
+    });
   }
 
   function disconnectWallet() {
@@ -173,12 +127,39 @@ export function useStacks() {
   }
 
   useEffect(() => {
-    if (userSession.isSignInPending()) {
-      userSession.handlePendingSignIn().then((userData) => {
-        setUserData(userData);
-      });
-    } else if (userSession.isUserSignedIn()) {
-      setUserData(userSession.loadUserData());
+    try {
+      if (userSession.isSignInPending()) {
+        userSession.handlePendingSignIn()
+          .then((userData) => {
+            setUserData(userData);
+          })
+          .catch((error) => {
+            console.error("Error handling pending sign in:", error);
+            userSession.signUserOut();
+            setUserData(null);
+          });
+      } else if (userSession.isUserSignedIn()) {
+        try {
+          const loadedUserData = userSession.loadUserData();
+          setUserData(loadedUserData);
+        } catch (loadError) {
+          console.error("Error loading user data:", loadError);
+          userSession.signUserOut();
+          setUserData(null);
+        }
+      }
+    } catch (error) {
+      console.error("Error in session check:", error);
+      try {
+        userSession.signUserOut();
+      } catch (signOutError) {
+        console.error("Error signing out:", signOutError);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("blockstack-session");
+          localStorage.removeItem("blockstack");
+        }
+      }
+      setUserData(null);
     }
   }, []);
 
