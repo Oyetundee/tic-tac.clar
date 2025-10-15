@@ -9,10 +9,11 @@ import {
   TupleCV,
   uintCV,
   UIntCV,
+  principalCV,
 } from "@stacks/transactions";
 
 const CONTRACT_ADDRESS = "ST1B95HGVJ45TG1970HCTCVZMZJYVAMJ4VV8SZGRC";
-const CONTRACT_NAME = "tic-tac-toe";
+const CONTRACT_NAME = "tic-tac-toe-v2";
 
 type GameCV = {
   "player-one": PrincipalCV;
@@ -32,6 +33,14 @@ export type Game = {
   board: number[];
   winner: string | null;
 };
+
+// ========== NEW FEATURE: PLAYER STATS TYPE ==========
+// This type describes what player stats look like
+export type PlayerStats = {
+  wins: number;
+  losses: number;
+};
+// ========== END NEW FEATURE ==========
 
 export enum Move {
   EMPTY = 0,
@@ -103,6 +112,37 @@ export async function getGame(gameId: number) {
   return game;
 }
 
+// ========== NEW FEATURE: GET PLAYER STATS START ==========
+// This function gets a player's wins and losses from the smart contract
+export async function getPlayerStats(playerAddress: string): Promise<PlayerStats> {
+  try {
+    // Call the smart contract's get-player-stats function
+    const statsCV = await fetchCallReadOnlyFunction({
+      contractAddress: CONTRACT_ADDRESS,
+      contractName: CONTRACT_NAME,
+      functionName: "get-player-stats",
+      functionArgs: [principalCV(playerAddress)],
+      senderAddress: CONTRACT_ADDRESS,
+      network: STACKS_TESTNET,
+    });
+
+    // The contract returns a tuple with wins and losses
+    const statsTuple = statsCV as TupleCV;
+    
+    // Get the wins and losses values from the tuple
+    const wins = parseInt((statsTuple.value["wins"] as UIntCV).value.toString());
+    const losses = parseInt((statsTuple.value["losses"] as UIntCV).value.toString());
+
+    // Return the stats as an object
+    return { wins, losses };
+  } catch (error) {
+    // If something goes wrong, just return 0 for both
+    console.error("Error fetching player stats:", error);
+    return { wins: 0, losses: 0 };
+  }
+}
+// ========== NEW FEATURE: GET PLAYER STATS END ==========
+
 export async function createNewGame(
   betAmount: number,
   moveIndex: number,
@@ -113,7 +153,7 @@ export async function createNewGame(
     contractName: CONTRACT_NAME,
     functionName: "create-game",
     functionArgs: [uintCV(betAmount), uintCV(moveIndex), uintCV(move)],
-    network: STACKS_TESTNET, // ← ADD THIS LINE
+    network: STACKS_TESTNET,
   };
 
   return txOptions;
@@ -125,7 +165,7 @@ export async function joinGame(gameId: number, moveIndex: number, move: Move) {
     contractName: CONTRACT_NAME,
     functionName: "join-game",
     functionArgs: [uintCV(gameId), uintCV(moveIndex), uintCV(move)],
-    network: STACKS_TESTNET, // ← ADD THIS LINE
+    network: STACKS_TESTNET,
   };
 
   return txOptions;
@@ -137,7 +177,7 @@ export async function play(gameId: number, moveIndex: number, move: Move) {
     contractName: CONTRACT_NAME,
     functionName: "play",
     functionArgs: [uintCV(gameId), uintCV(moveIndex), uintCV(move)],
-    network: STACKS_TESTNET, // ← ADD THIS LINE
+    network: STACKS_TESTNET,
   };
 
   return txOptions;
