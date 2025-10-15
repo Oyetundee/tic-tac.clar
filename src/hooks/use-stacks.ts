@@ -1,3 +1,5 @@
+'use client';
+
 import { createNewGame, joinGame, Move, play } from "@/lib/contract";
 import { getStxBalance } from "@/lib/stx-utils";
 import {
@@ -22,6 +24,9 @@ export function useStacks() {
   const [stxBalance, setStxBalance] = useState(0);
 
   async function connectWallet() {
+    // Ensure we're in the browser
+    if (typeof window === "undefined") return;
+    
     try {
       const connectModule = await import("@stacks/connect");
       
@@ -43,15 +48,12 @@ export function useStacks() {
         };
       };
       
-      // Use 'as unknown as' to bypass TypeScript's strict checking
       const typedModule = connectModule as unknown as ExtendedConnectModule;
       
-      // LOG EVERYTHING to see what's available
       console.log("Connect module:", connectModule);
       console.log("Available exports:", Object.keys(connectModule));
       console.log("Default exports:", connectModule.default ? Object.keys(connectModule.default) : "none");
       
-      // Try all possible variations
       const authModal = 
         typedModule.openAuthModal || 
         typedModule.default?.openAuthModal ||
