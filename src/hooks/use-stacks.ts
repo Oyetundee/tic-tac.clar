@@ -25,6 +25,24 @@ export function useStacks() {
     try {
       const connectModule = await import("@stacks/connect");
       
+      // Type the module properly
+      type ConnectModule = typeof connectModule & {
+        authenticate?: (args: {
+          appDetails: typeof appDetails;
+          onFinish: () => void;
+          userSession: typeof userSession;
+        }) => void;
+        default?: {
+          authenticate?: (args: {
+            appDetails: typeof appDetails;
+            onFinish: () => void;
+            userSession: typeof userSession;
+          }) => void;
+        };
+      };
+      
+      const typedModule = connectModule as ConnectModule;
+      
       // LOG EVERYTHING to see what's available
       console.log("Connect module:", connectModule);
       console.log("Available exports:", Object.keys(connectModule));
@@ -36,8 +54,8 @@ export function useStacks() {
         connectModule.default?.openAuthModal ||
         connectModule.showConnect ||
         connectModule.default?.showConnect ||
-        (connectModule as any).authenticate ||
-        (connectModule as any).default?.authenticate;
+        typedModule.authenticate ||
+        typedModule.default?.authenticate;
       
       if (!authModal) {
         console.error("No auth modal function found.");
