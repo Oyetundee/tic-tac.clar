@@ -25,23 +25,26 @@ export function useStacks() {
     try {
       const connectModule = await import("@stacks/connect");
       
-      // Type the module properly
-      type ConnectModule = typeof connectModule & {
-        authenticate?: (args: {
-          appDetails: typeof appDetails;
-          onFinish: () => void;
-          userSession: typeof userSession;
-        }) => void;
+      // Type assertion to handle unknown properties
+      type AuthModalFunction = (args: {
+        appDetails: typeof appDetails;
+        onFinish: () => void;
+        userSession: typeof userSession;
+      }) => void;
+
+      type ExtendedConnectModule = {
+        openAuthModal?: AuthModalFunction;
+        showConnect?: AuthModalFunction;
+        authenticate?: AuthModalFunction;
         default?: {
-          authenticate?: (args: {
-            appDetails: typeof appDetails;
-            onFinish: () => void;
-            userSession: typeof userSession;
-          }) => void;
+          openAuthModal?: AuthModalFunction;
+          showConnect?: AuthModalFunction;
+          authenticate?: AuthModalFunction;
         };
       };
       
-      const typedModule = connectModule as ConnectModule;
+      // Use 'as unknown as' to bypass TypeScript's strict checking
+      const typedModule = connectModule as unknown as ExtendedConnectModule;
       
       // LOG EVERYTHING to see what's available
       console.log("Connect module:", connectModule);
@@ -50,10 +53,10 @@ export function useStacks() {
       
       // Try all possible variations
       const authModal = 
-        connectModule.openAuthModal || 
-        connectModule.default?.openAuthModal ||
-        connectModule.showConnect ||
-        connectModule.default?.showConnect ||
+        typedModule.openAuthModal || 
+        typedModule.default?.openAuthModal ||
+        typedModule.showConnect ||
+        typedModule.default?.showConnect ||
         typedModule.authenticate ||
         typedModule.default?.authenticate;
       
